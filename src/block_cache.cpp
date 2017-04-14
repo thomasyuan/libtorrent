@@ -468,12 +468,10 @@ void block_cache::cache_hit(cached_piece_entry* p, void* requester, bool volatil
 	if (p->cache_state == cached_piece_entry::read_lru1_ghost)
 	{
 		m_last_cache_op = ghost_hit_lru1;
-		p->storage->add_piece(p);
 	}
 	else if (p->cache_state == cached_piece_entry::read_lru2_ghost)
 	{
 		m_last_cache_op = ghost_hit_lru2;
-		p->storage->add_piece(p);
 	}
 
 	// move into L2 (frequently used)
@@ -690,16 +688,6 @@ cached_piece_entry* block_cache::allocate_piece(disk_io_job const* j, int cache_
 			// into the read cache, but fails and is cleared (into the ghost list)
 			// then we want to add new dirty blocks to it and we need to move
 			// it back into the write cache
-
-			// it also happens when pulling a ghost piece back into the proper cache
-
-			if (p->cache_state == cached_piece_entry::read_lru1_ghost
-				|| p->cache_state == cached_piece_entry::read_lru2_ghost)
-			{
-				// since it used to be a ghost piece, but no more,
-				// we need to add it back to the storage
-				p->storage->add_piece(p);
-			}
 			m_lru[p->cache_state].erase(p);
 			p->cache_state = cache_state;
 			m_lru[p->cache_state].push_back(p);
@@ -872,7 +860,8 @@ void block_cache::free_block(cached_piece_entry* pe, int block)
 	b.buf = NULL;
 }
 
-bool block_cache::evict_piece(cached_piece_entry* pe, tailqueue<disk_io_job>& jobs)
+bool block_cache::evict_piece(cached_piece_entry* pe, tailqueue<disk_io_job>& jobs
+	, bool allow_ghost)
 {
 	INVARIANT_CHECK;
 
@@ -922,11 +911,13 @@ bool block_cache::evict_piece(cached_piece_entry* pe, tailqueue<disk_io_job>& jo
 		jobs.append(pe->jobs);
 		TORRENT_ASSERT(pe->jobs.size() == 0);
 
-		if (pe->cache_state == cached_piece_entry::read_lru1_ghost
-			|| pe->cache_state == cached_piece_entry::read_lru2_ghost)
+		if (allow_ghost
+			&& (pe->cache_state == cached_piece_entry::read_lru1_ghost
+			|| pe->cache_state == cached_piece_entry::read_lru2_ghost))
 			return true;
 
-		if (pe->cache_state == cached_piece_entry::write_lru
+		if (!allow_ghost
+			|| pe->cache_state == cached_piece_entry::write_lru
 			|| pe->cache_state == cached_piece_entry::volatile_read_lru)
 			erase_piece(pe);
 		else
@@ -937,7 +928,7 @@ bool block_cache::evict_piece(cached_piece_entry* pe, tailqueue<disk_io_job>& jo
 	return false;
 }
 
-void block_cache::mark_for_deletion(cached_piece_entry* p)
+void block_cache::mark_for_deletion(cached_piece_entry* p, bool allow_ghost)
 {
 	INVARIANT_CHECK;
 
@@ -946,7 +937,7 @@ void block_cache::mark_for_deletion(cached_piece_entry* p)
 
 	TORRENT_PIECE_ASSERT(p->jobs.empty(), p);
 	tailqueue<disk_io_job> jobs;
-	if (!evict_piece(p, jobs))
+	if (!evict_piece(p, jobs, allow_ghost))
 	{
 		p->marked_for_deletion = true;
 	}
@@ -966,9 +957,7 @@ void block_cache::erase_piece(cached_piece_entry* pe)
 		delete pe->hash;
 		pe->hash = NULL;
 	}
-	if (pe->cache_state != cached_piece_entry::read_lru1_ghost
-		&& pe->cache_state != cached_piece_entry::read_lru2_ghost)
-		pe->storage->remove_piece(pe);
+	pe->storage->remove_piece(pe);
 	lru_list->erase(pe);
 	m_pieces.erase(*pe);
 }
@@ -1259,7 +1248,6 @@ void block_cache::move_to_ghost(cached_piece_entry* pe)
 		erase_piece(p);
 	}
 
-	pe->storage->remove_piece(pe);
 	m_lru[pe->cache_state].erase(pe);
 	pe->cache_state += 1;
 	ghost_list->push_back(pe);
@@ -1607,18 +1595,18 @@ void block_cache::check_invariant() const
 			if (i != cached_piece_entry::read_lru1_ghost
 				&& i != cached_piece_entry::read_lru2_ghost)
 			{
-				TORRENT_PIECE_ASSERT(pe->storage->has_piece(pe), pe);
 				TORRENT_PIECE_ASSERT(pe->expire >= timeout, pe);
 				timeout = pe->expire;
 				TORRENT_PIECE_ASSERT(pe->in_storage, pe);
-				TORRENT_PIECE_ASSERT(pe->storage->has_piece(pe), pe);
 			}
 			else
 			{
 				// pieces in the ghost lists should never have any blocks
 				TORRENT_PIECE_ASSERT(pe->num_blocks == 0, pe);
-				TORRENT_PIECE_ASSERT(pe->storage->has_piece(pe) == false, pe);
 			}
+			// pieces in the ghost list are still in the storage's list of pieces,
+			// because we need to be able to evict them when stopping a torrent
+			TORRENT_PIECE_ASSERT(pe->storage->has_piece(pe), pe);
 
 			storages.insert(pe->storage.get());
 		}
@@ -1647,19 +1635,7 @@ void block_cache::check_invariant() const
 		int num_pending = 0;
 		int num_refcount = 0;
 
-		bool in_storage = p.storage->has_piece(&p);
-		switch (p.cache_state)
-		{
-			case cached_piece_entry::write_lru:
-			case cached_piece_entry::volatile_read_lru:
-			case cached_piece_entry::read_lru1:
-			case cached_piece_entry::read_lru2:
-				TORRENT_ASSERT(in_storage == true);
-				break;
-			default:
-				TORRENT_ASSERT(in_storage == false);
-				break;
-		}
+		TORRENT_ASSERT(p.storage->has_piece(&p));
 
 		for (int k = 0; k < p.blocks_in_piece; ++k)
 		{
