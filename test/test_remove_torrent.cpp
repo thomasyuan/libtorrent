@@ -73,13 +73,15 @@ void test_remove_torrent(int const remove_options
 	torrent_handle tor1;
 	torrent_handle tor2;
 
+	int const num_pieces = (test == mid_download) ? 500 : 100;
+
 	error_code ec;
 	remove_all("tmp1_remove", ec);
 	remove_all("tmp2_remove", ec);
 	create_directory("tmp1_remove", ec);
 	std::ofstream file("tmp1_remove/temporary");
 	boost::shared_ptr<torrent_info> t = ::create_torrent(&file, "temporary"
-		, 16 * 1024, 100, false);
+		, 16 * 1024, num_pieces, false);
 	file.close();
 
 	wait_for_listen(ses1, "ses1");
@@ -89,7 +91,6 @@ void test_remove_torrent(int const remove_options
 	boost::tie(tor1, tor2, ignore) = setup_transfer(&ses1, &ses2, 0
 		, true, false, true, "_remove", 8 * 1024, &t, false, 0);
 
-	int const num_pieces = tor2.torrent_file()->num_pieces();
 	if (test == partial_download)
 	{
 		std::vector<int> priorities(num_pieces, 1);

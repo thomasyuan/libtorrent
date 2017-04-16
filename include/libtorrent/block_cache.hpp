@@ -188,8 +188,9 @@ namespace libtorrent
 				&& (ignore_hash || !hash || hash->offset == 0);
 		}
 
-		// storage this piece belongs to
-		boost::shared_ptr<piece_manager> storage;
+		// storage this piece belongs to. This is just used as a unique, opaque,
+		// identigier
+		piece_manager* storage;
 
 		// write jobs hanging off of this piece
 		tailqueue<disk_io_job> jobs;
@@ -199,10 +200,10 @@ namespace libtorrent
 		tailqueue<disk_io_job> read_jobs;
 
 		int get_piece() const { return piece; }
-		void* get_storage() const { return storage.get(); }
+		void* get_storage() const { return storage; }
 
 		bool operator==(cached_piece_entry const& rhs) const
-		{ return storage.get() == rhs.storage.get() && piece == rhs.piece; }
+		{ return storage == rhs.storage && piece == rhs.piece; }
 
 		// if this is set, we'll be calculating the hash
 		// for this piece. This member stores the interim
@@ -334,7 +335,7 @@ namespace libtorrent
 	// internal
 	inline std::size_t hash_value(cached_piece_entry const& p)
 	{
-		return std::size_t(p.storage.get()) + std::size_t(p.piece);
+		return std::size_t(p.storage) + std::size_t(p.piece);
 	}
 
 	struct TORRENT_EXTRA_EXPORT block_cache : disk_buffer_pool

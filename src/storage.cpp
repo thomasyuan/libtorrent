@@ -1645,7 +1645,7 @@ namespace libtorrent
 	void storage_piece_set::add_piece(cached_piece_entry* p)
 	{
 		TORRENT_ASSERT(p->in_storage == false);
-		TORRENT_ASSERT(p->storage.get() == this);
+		TORRENT_ASSERT(p->storage == this);
 		TORRENT_ASSERT(m_cached_pieces.count(p) == 0);
 		m_cached_pieces.insert(p);
 #if TORRENT_USE_ASSERTS

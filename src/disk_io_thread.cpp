@@ -375,7 +375,7 @@ namespace libtorrent
 				DLOG("[%d self] ", i);
 				continue;
 			}
-			cached_piece_entry* pe = m_disk_cache.find_piece(p->storage.get(), i);
+			cached_piece_entry* pe = m_disk_cache.find_piece(p->storage, i);
 			if (pe == NULL)
 			{
 				DLOG("[%d NULL] ", i);
@@ -453,7 +453,7 @@ namespace libtorrent
 		{
 			cached_piece_entry* pe;
 			if (i == p->piece) pe = p;
-			else pe = m_disk_cache.find_piece(p->storage.get(), range_start + i);
+			else pe = m_disk_cache.find_piece(p->storage, range_start + i);
 			if (pe == NULL
 				|| pe->cache_state != cached_piece_entry::write_lru)
 			{
@@ -504,7 +504,7 @@ namespace libtorrent
 		{
 			cached_piece_entry* pe;
 			if (i == p->piece) pe = p;
-			else pe = m_disk_cache.find_piece(p->storage.get(), range_start + i);
+			else pe = m_disk_cache.find_piece(p->storage, range_start + i);
 			if (pe == NULL)
 			{
 				DLOG("iovec_flushed: piece %d gone!\n", range_start + i);
@@ -841,7 +841,7 @@ namespace libtorrent
 			{
 				cached_piece_entry* pe = m_disk_cache.find_piece(storage, *i);
 				if (pe == NULL) continue;
-				TORRENT_PIECE_ASSERT(pe->storage.get() == storage, pe);
+				TORRENT_PIECE_ASSERT(pe->storage == storage, pe);
 				flush_piece(pe, flags, completed_jobs, l);
 			}
 #if TORRENT_USE_ASSERTS
@@ -905,7 +905,7 @@ namespace libtorrent
 		{
 			cached_piece_entry* e = p.get();
 			if (e->num_dirty == 0) continue;
-			pieces.push_back(std::make_pair(e->storage.get(), int(e->piece)));
+			pieces.push_back(std::make_pair(e->storage, int(e->piece)));
 		}
 
 		for (std::vector<std::pair<piece_manager*, int> >::iterator i = pieces.begin()
@@ -2116,7 +2116,7 @@ namespace libtorrent
 		if (!pe->hash) return;
 		if (pe->hashing) return;
 
-		int piece_size = pe->storage.get()->files()->piece_size(pe->piece);
+		int piece_size = pe->storage->files()->piece_size(pe->piece);
 		partial_hash* ph = pe->hash;
 
 		// are we already done?
@@ -2745,7 +2745,7 @@ namespace libtorrent
 		, int block_size)
 	{
 		info.piece = i->piece;
-		info.storage = i->storage.get();
+		info.storage = i->storage;
 		info.last_use = i->expire;
 		info.need_readback = i->need_readback;
 		info.next_to_hash = i->hash == 0 ? -1 : (i->hash->offset + block_size - 1) / block_size;
@@ -2846,7 +2846,7 @@ namespace libtorrent
 					= storage->cached_pieces().begin(), end(storage->cached_pieces().end());
 					i != end; ++i)
 				{
-					TORRENT_ASSERT((*i)->storage.get() == storage);
+					TORRENT_ASSERT((*i)->storage == storage);
 
 					if ((*i)->cache_state == cached_piece_entry::read_lru2_ghost
 						|| (*i)->cache_state == cached_piece_entry::read_lru1_ghost)

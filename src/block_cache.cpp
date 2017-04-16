@@ -633,7 +633,7 @@ cached_piece_entry* block_cache::allocate_piece(disk_io_job const* j, int cache_
 
 		cached_piece_entry pe;
 		pe.piece = j->piece;
-		pe.storage = j->storage;
+		pe.storage = j->storage.get();
 		pe.expire = aux::time_now();
 		pe.blocks_in_piece = blocks_in_piece;
 		pe.blocks.reset(new (std::nothrow) cached_block_entry[blocks_in_piece]);
@@ -1608,7 +1608,7 @@ void block_cache::check_invariant() const
 			// because we need to be able to evict them when stopping a torrent
 			TORRENT_PIECE_ASSERT(pe->storage->has_piece(pe), pe);
 
-			storages.insert(pe->storage.get());
+			storages.insert(pe->storage);
 		}
 	}
 
@@ -1619,7 +1619,7 @@ void block_cache::check_invariant() const
 			, end2((*i)->cached_pieces().end()); j != end2; ++j)
 		{
 			cached_piece_entry* pe = *j;
-			TORRENT_PIECE_ASSERT(pe->storage.get() == *i, pe);
+			TORRENT_PIECE_ASSERT(pe->storage == *i, pe);
 		}
 	}
 
@@ -1833,10 +1833,10 @@ cached_piece_entry* block_cache::find_piece(disk_io_job const* j)
 cached_piece_entry* block_cache::find_piece(piece_manager* st, int piece)
 {
 	cached_piece_entry model;
-	model.storage = st->shared_from_this();
+	model.storage = st;
 	model.piece = piece;
 	iterator i = m_pieces.find(model);
-	TORRENT_ASSERT(i == m_pieces.end() || (i->storage.get() == st && i->piece == piece));
+	TORRENT_ASSERT(i == m_pieces.end() || (i->storage == st && i->piece == piece));
 	if (i == m_pieces.end()) return 0;
 	TORRENT_PIECE_ASSERT(i->in_use, &*i);
 
