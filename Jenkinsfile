@@ -2,14 +2,10 @@ pipeline {
     agent any
 
     stages {
-        stage('Build') {
-            steps {
-                cppcheck --xml --xml-version=2 SOURCE_DIRECTORY 2> report_cppcheck.xml
-            }
-        }
         stage('cppCheck') {
             steps {
-                publishCppcheck pattern:'output/report_cppcheck.xml'
+                sh label: '', returnStatus: true, script: 'cppcheck . --xml --language=c++ --suppressions-list=suppressions.txt 2> cppcheck-result.xml'
+                publishCppcheck allowNoReport: true, ignoreBlankFiles: true, pattern: '**/cppcheck-result.xml'
             }
         }
         stage('Deploy') {
