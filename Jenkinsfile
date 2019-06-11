@@ -7,9 +7,9 @@ pipeline {
                 echo 'Building..'
             }
         }
-        stage('Test') {
+        stage('PreBuild') {
             steps {
-                cppcheck *.cpp
+                publishCppcheck pattern:'output/bin/Release/report_cppcheck.xml'
             }
         }
         stage('Deploy') {
