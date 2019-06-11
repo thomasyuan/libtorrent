@@ -4,12 +4,12 @@ pipeline {
     stages {
         stage('Build') {
             steps {
-                echo 'Building..'
+                cppcheck --xml --xml-version=2 SOURCE_DIRECTORY 2> report_cppcheck.xml
             }
         }
-        stage('PreBuild') {
+        stage('cppCheck') {
             steps {
-                publishCppcheck pattern:'output/bin/Release/report_cppcheck.xml'
+                publishCppcheck pattern:'output/report_cppcheck.xml'
             }
         }
         stage('Deploy') {
