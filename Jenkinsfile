@@ -4,7 +4,7 @@ pipeline {
     stages {
         stage('cppCheck') {
             steps {
-                sh "cppcheck --enable=all --xml --xml-version=2 ."
+                sh "cppcheck --enable=all ."
             }
         }
         stage('Deploy') {
