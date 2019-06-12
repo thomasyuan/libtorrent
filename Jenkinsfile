@@ -13,4 +13,9 @@ pipeline {
       }
     }
   }
+  post {
+    always {
+        archiveArtifacts artifacts: '**/cppcheck-result.xml', fingerprint: true
+    }
+  }
 }
